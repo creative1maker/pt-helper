@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="strict-origin-when-cross-origin" />
+<title>MuscleMap — Exercise Database</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0b0f18;
+  --surface: #111827;
+  --surface2: #1c2333;
+  --surface3: #232d3f;
+  --border: #2a3347;
+  --border2: #3a4760;
+  --text: #e2e8f4;
+  --text-muted: #7a8aa8;
+  --accent: #ff6b35;
+  --accent2: #4fc3f7;
+  --green: #43d98e;
+  --yellow: #f4c542;
+  --red: #ff5c5c;
+  --muscle-idle: rgba(79, 195, 247, 0.09);
+  --muscle-hover: rgba(255, 107, 53, 0.38);
+  --muscle-active: rgba(255, 107, 53, 0.6);
+  --muscle-stroke: rgba(79,195,247,0.5);
+  --muscle-stroke-h: #ff6b35;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{font-size:14px}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+
+/* ── HEADER ── */
+.hdr{
+  display:flex;align-items:center;gap:20px;flex-wrap:wrap;
+  padding:14px 28px;
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:100;
+}
+.logo{
+  font-family:'Space Mono',monospace;font-size:17px;font-weight:700;
+  letter-spacing:-0.5px;white-space:nowrap;
+  background:linear-gradient(120deg,var(--accent),var(--accent2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.hdr-sep{width:1px;height:28px;background:var(--border);flex-shrink:0}
+.sheet-wrap{display:flex;align-items:center;gap:8px;flex:1;min-width:260px}
+.sheet-wrap label{font-size:11px;color:var(--text-muted);white-space:nowrap;font-family:'Space Mono',monospace;letter-spacing:.5px;text-transform:uppercase}
+.sheet-wrap input{
+  flex:1;background:var(--bg);border:1px solid var(--border2);border-radius:8px;
+  padding:7px 12px;color:var(--text);font-size:12px;font-family:'Space Mono',monospace;outline:none;
+  transition:border-color .2s;
+}
+.sheet-wrap input:focus{border-color:var(--accent2)}
+.btn-load{
+  background:linear-gradient(135deg,var(--accent),#ff9155);
+  color:#fff;border:none;border-radius:8px;padding:7px 16px;
+  font-size:13px;font-family:'DM Sans',sans-serif;font-weight:600;
+  cursor:pointer;white-space:nowrap;transition:opacity .2s,transform .1s;
+}
+.btn-load:hover{opacity:.88;transform:translateY(-1px)}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--border2);flex-shrink:0;transition:background .3s}
+.status-dot.ok{background:var(--green);box-shadow:0 0 8px var(--green)}
+.status-dot.err{background:var(--red)}
+.status-dot.loading{background:var(--yellow);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ── LAYOUT ── */
+.layout{display:grid;grid-template-columns:430px 1fr;min-height:calc(100vh - 57px)}
+
+/* ── MAP PANEL ── */
+.map-panel{
+  background:var(--surface);border-right:1px solid var(--border);
+  padding:20px 16px 24px;
+  display:flex;flex-direction:column;align-items:center;gap:14px;
+  position:sticky;top:57px;height:calc(100vh - 57px);overflow-y:auto;
+}
+.map-panel::-webkit-scrollbar{width:4px}
+.map-panel::-webkit-scrollbar-track{background:transparent}
+.map-panel::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+.panel-hed{
+  width:100%;display:flex;align-items:center;justify-content:space-between;
+}
+.panel-title{font-size:10px;font-family:'Space Mono',monospace;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted)}
+.clear-btn{font-size:11px;color:var(--accent);cursor:pointer;opacity:0;pointer-events:none;transition:opacity .2s;font-family:'Space Mono',monospace}
+.clear-btn.visible{opacity:1;pointer-events:auto}
+
+.figures{display:flex;gap:16px;justify-content:center;width:100%}
+.fig-wrap{display:flex;flex-direction:column;align-items:center;gap:6px}
+.fig-label{font-size:10px;color:var(--text-muted);letter-spacing:2px;text-transform:uppercase;font-family:'Space Mono',monospace}
+
+/* SVG muscle regions */
+.body-skin{fill:#1c2535;stroke:#2e3d55;stroke-width:1.2}
+.body-detail{fill:none;stroke:#2e3d55;stroke-width:.8}
+
+.muscle-region path {
+  fill: var(--muscle-idle); stroke: var(--muscle-stroke); stroke-width: 1.2;
+  cursor: pointer; transition: fill .18s, stroke .18s, stroke-width .18s;
+}
+.muscle-region:hover path, .muscle-region.hover-active path {
+  fill: var(--muscle-hover); stroke: var(--muscle-stroke-h); stroke-width: 2;
+}
+.muscle-region.active path {
+  fill: var(--muscle-active); stroke: var(--muscle-stroke-h); stroke-width: 2.2; 
+  filter: drop-shadow(0 0 6px rgba(255,107,53,.5));
+}
+
+/* Toggle Controls */
+.toggle-controls {
+  display: flex; background: var(--surface2); border-radius: 8px; 
+  padding: 4px; width: 100%; margin-bottom: 15px; border: 1px solid var(--border);
+}
+.toggle-btn {
+  flex: 1; border: none; background: transparent; padding: 8px 12px; cursor: pointer;
+  font-family: 'Space Mono', monospace; font-size: 11px; font-weight: 700; 
+  color: var(--text-muted); border-radius: 6px; transition: all 0.2s;
+  text-transform: uppercase; letter-spacing: 1px;
+}
+.toggle-btn.active {
+  background: var(--accent); color: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* ── MUSCLE LIST CHIPS ── */
+.chips-section{width:100%;display:flex;flex-direction:column;gap:6px}
+.chips-label{font-size:10px;font-family:'Space Mono',monospace;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-muted)}
+.chips-grid{display:flex;flex-wrap:wrap;gap:5px}
+.mchip{
+  font-size:11px;padding:4px 10px;border-radius:20px;
+  border:1px solid var(--border2);color:var(--text-muted);
+  cursor:pointer;transition:all .15s;white-space:nowrap;
+}
+.mchip:hover{border-color:var(--accent);color:var(--accent)}
+.mchip.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+
+/* ── CONTENT PANEL ── */
+.content{padding:22px 24px;overflow-y:auto;max-height:calc(100vh - 57px)}
+.content::-webkit-scrollbar{width:6px}
+.content::-webkit-scrollbar-track{background:transparent}
+.content::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+
+/* ── SETUP BANNER ── */
+.setup-banner{
+  border-radius:12px;padding:18px 22px;margin-bottom:22px;
+  background:linear-gradient(135deg,rgba(255,107,53,.08),rgba(79,195,247,.08));
+  border:1px solid rgba(255,107,53,.25);
+}
+.setup-title{font-size:14px;font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.setup-steps{font-size:12px;color:var(--text-muted);line-height:2}
+.setup-steps code{
+  background:var(--surface3);padding:2px 6px;border-radius:4px;
+  font-family:'Space Mono',monospace;font-size:11px;color:var(--accent2);
+}
+
+/* ── FILTER BAR ── */
+.filter-bar{
+  display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;
+  padding:14px 16px;background:var(--surface);border:1px solid var(--border);
+  border-radius:10px;margin-bottom:18px;
+}
+.fg{display:flex;flex-direction:column;gap:6px}
+.fg-label{font-size:10px;font-family:'Space Mono',monospace;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-muted)}
+.fchips{display:flex;flex-wrap:wrap;gap:5px}
+.fchip{
+  display:flex;align-items:center;gap:4px;padding:4px 11px;border-radius:20px;
+  border:1px solid var(--border2);color:var(--text-muted);font-size:12px;
+  cursor:pointer;transition:all .15s;background:transparent;font-family:'DM Sans',sans-serif;
+}
+.fchip:hover{border-color:var(--accent2);color:var(--accent2)}
+.fchip.on{background:rgba(79,195,247,.15);border-color:var(--accent2);color:var(--accent2);font-weight:600}
+.fchip .ei{font-size:13px}
+
+.diff-chips{display:flex;gap:5px}
+.dchip{
+  padding:4px 12px;border-radius:20px;border:1px solid var(--border2);
+  color:var(--text-muted);font-size:12px;cursor:pointer;transition:all .15s;
+  background:transparent;font-family:'DM Sans',sans-serif;
+}
+.dchip:hover{border-color:var(--text);color:var(--text)}
+.dchip.nov{background:rgba(67,217,142,.15);border-color:var(--green);color:var(--green)}
+.dchip.beg{background:rgba(67,217,142,.15);border-color:var(--green);color:var(--green)}
+.dchip.int{background:rgba(244,197,66,.15);border-color:var(--yellow);color:var(--yellow)}
+.dchip.adv{background:rgba(255,92,92,.15);border-color:var(--red);color:var(--red)}
+.mover-chip.active { 
+  background: var(--accent); 
+  border-color: var(--accent); 
+  color: #fff; 
+  font-weight: 600; 
+}
+
+.fg-search{margin-left:auto}
+.fsearch{
+  background:var(--bg);border:1px solid var(--border2);border-radius:8px;
+  padding:7px 13px;color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;
+  outline:none;width:200px;transition:border-color .2s;
+}
+.fsearch:focus{border-color:var(--accent2)}
+/* ── CLEAR BUTTON ── */
+.btn-clear-all {
+  background: rgba(255, 92, 92, 0.1); border: 1px solid rgba(255, 92, 92, 0.3); 
+  border-radius: 8px; color: var(--red); padding: 7px 14px; font-size: 11px; 
+  font-family: 'Space Mono', monospace; font-weight: 700; cursor: pointer; 
+  transition: all 0.2s; height: 33px; text-transform: uppercase; letter-spacing: 1px;
+}
+.btn-clear-all:hover {
+  background: rgba(255, 92, 92, 0.2); border-color: var(--red); transform: translateY(-1px);
+}
+/* ── DROPDOWNS ── */
+.fselect {
+  background: var(--bg); border: 1px solid var(--border2); border-radius: 8px;
+  padding: 6px 12px; color: var(--text); font-size: 12px; font-family: 'DM Sans', sans-serif;
+  outline: none; cursor: pointer; transition: border-color .2s;
+  min-width: 140px;
+}
+.fselect:focus { border-color: var(--accent2); }
+.fselect option { background: var(--surface); color: var(--text); }
+.dropdown-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+/* ── RESULTS HEADER ── */
+.results-row{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:16px}
+.results-title{font-size:22px;font-weight:700;letter-spacing:-.3px}
+.results-count{font-size:12px;color:var(--text-muted);font-family:'Space Mono',monospace}
+
+/* ── CARDS ── */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:18px}
+
+.card{
+  background:var(--surface);border:1px solid var(--border);border-radius:14px;
+  overflow:hidden;transition:border-color .2s,transform .2s,box-shadow .2s;
+}
+.card:hover{border-color:var(--border2);transform:translateY(-2px);box-shadow:0 8px 32px rgba(0,0,0,.4)}
+
+.card-top{padding:15px 15px 10px;display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.card-name{font-size:14px;font-weight:600;line-height:1.35}
+
+.dbadge{
+  font-size:10px;font-weight:700;padding:3px 8px;border-radius:5px;
+  text-transform:uppercase;letter-spacing:.6px;flex-shrink:0;
+}
+.db-nov{background:rgba(67,217,142,.15);color:var(--green)}
+.db-beg{background:rgba(67,217,142,.15);color:var(--green)}
+.db-int{background:rgba(244,197,66,.15);color:var(--yellow)}
+.db-adv{background:rgba(255,92,92,.15);color:var(--red)}
+
+.card-muscles{padding:0 15px 10px;display:flex;flex-wrap:wrap;gap:5px}
+.mtag{font-size:11px;padding:2px 8px;border-radius:5px;font-family:'Space Mono',monospace;line-height:1.5}
+.mtag.p1{background:rgba(255,107,53,.12);color:var(--accent);border:1px solid rgba(255,107,53,.28)}
+.mtag.p2{background:rgba(79,195,247,.1);color:var(--accent2);border:1px solid rgba(79,195,247,.22)}
+.mtag.p3{background:rgba(122,138,168,.08);color:var(--text-muted);border:1px solid var(--border)}
+
+/* ── VIDEOS ── */
+.videos{padding:0 15px 10px;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.vid-wrap{}
+.vid-lbl{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:4px;font-family:'Space Mono',monospace}
+.vid-frame{width:100%;aspect-ratio:16/9;border-radius:8px;border:1px solid var(--border);background:var(--bg);display:block}
+.vid-none{
+  width:100%;aspect-ratio:16/9;border-radius:8px;border:1px solid var(--border);
+  background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;
+  color:var(--text-muted);font-size:20px;gap:4px;
+}
+.vid-none span{font-size:11px}
+
+/* ── CARD META ── */
+.card-meta{
+  padding:10px 15px 13px;display:flex;flex-wrap:wrap;gap:8px;
+  border-top:1px solid var(--border);margin-top:2px;
+}
+.mi{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-muted)}
+.mi-icon{font-size:12px}
+
+/* ── EMPTY / LOADING ── */
+.empty{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:70px 20px;color:var(--text-muted);text-align:center;grid-column:1/-1;
+}
+.empty-icon{font-size:44px;margin-bottom:14px}
+.empty-t{font-size:18px;font-weight:600;color:var(--text);margin-bottom:6px}
+.empty-d{font-size:13px;max-width:380px;line-height:1.7}
+
+.loading{display:flex;align-items:center;gap:10px;color:var(--text-muted);font-size:14px;padding:40px;grid-column:1/-1}
+.spin{width:18px;height:18px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:sp .7s linear infinite;flex-shrink:0}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* Tooltip */
+#tip{
+  position:fixed;background:var(--surface2);border:1px solid var(--accent);
+  color:var(--text);font-size:12px;font-family:'Space Mono',monospace;
+  padding:4px 10px;border-radius:6px;pointer-events:none;z-index:999;display:none;
+  box-shadow:0 4px 16px rgba(0,0,0,.4);
+}
+
+@media(max-width:860px){
+  .layout{grid-template-columns:1fr}
+  .map-panel{position:relative;top:0;height:auto}
+  .figures{flex-wrap:wrap}
+}
+.dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: currentColor;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.dot.empty {
+  background: transparent;
+  border: 2px solid currentColor;
+}
+
+.dot.half {
+  background: linear-gradient(to right, currentColor 50%, transparent 50%);
+  border: 2px solid currentColor;
+}
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ─────────────────────────────────────────────────────────────── -->
+<header class="hdr">
+  <div class="logo">MUSCLE<wbr>MAP</div>
+  <div class="hdr-sep"></div>
+  <div class="sheet-wrap" style="color: var(--green); font-weight: 600;">
+    ✓ Database Loaded Local
+  </div>
+</header>
+
+<div id="tip"></div>
+
+<div class="layout">
+
+<!-- ── MUSCLE MAP PANEL ────────────────────────────────────────────────────── -->
+<div class="map-panel">
+
+<div class="panel-hed" style="width:100%">
+    <div class="panel-title">// Click a muscle to filter</div>
+    <div class="clear-btn" id="clearBtn" onclick="clearMuscle()">✕ Clear</div>
+  </div>
+
+  <div class="toggle-controls" id="modeToggles">
+    <button class="toggle-btn active" data-mode="group">Muscle Group</button>
+    <button class="toggle-btn" data-mode="mover">Muscle Mover</button>
+  </div>
+
+<div class="figures" id="svgContainer"></div>
+
+  <div id="moverToggles" style="display:none; width: 100%; margin-top: 20px; flex-direction: column; align-items: center; gap: 8px;">
+    <div class="chips-label">Prioritize Mover Role</div>
+    <div class="diff-chips">
+      <button class="dchip mover-chip active" onclick="setMoverType('Any', this)">Any Role</button>
+      <button class="dchip mover-chip" onclick="setMoverType('Prime', this)">Prime</button>
+      <button class="dchip mover-chip" onclick="setMoverType('Secondary', this)">Secondary</button>
+      <button class="dchip mover-chip" onclick="setMoverType('Tertiary', this)">Tertiary</button>
+    </div>
+  </div>
+
+  <!-- Muscle chips from database -->
+  <div class="chips-section" id="chipsSection" style="display:none">
+    <div class="chips-label">Muscles in your database</div>
+    <div class="chips-grid" id="chipsGrid"></div>
+  </div>
+
+</div><!-- /map-panel -->
+
+<!-- ── CONTENT PANEL ──────────────────────────────────────────────────────── -->
+<div class="content">
+
+  <!-- Setup banner -->
+  <div class="setup-banner" id="setupBanner">
+    <div class="setup-title">📋 Connect Your Google Sheets Exercise Database</div>
+    <div class="setup-steps">
+      <strong>Step 1 —</strong> In Google Sheets: <code>File</code> → <code>Share</code> → <code>Publish to web</code><br>
+      <strong>Step 2 —</strong> Select your sheet tab → choose <code>Comma-separated values (.csv)</code> → click <code>Publish</code><br>
+      <strong>Step 3 —</strong> Copy the URL, paste it in the header above, then hit <code>Load Data →</code>
+    </div>
+  </div>
+
+  <!-- Filter bar (hidden until data loads) -->
+<div class="filter-bar" id="filterBar" style="display:none">
+    <div class="fg">
+      <div class="fg-label">Equipment</div>
+      <div class="fchips" id="equipChips"></div>
+    </div>
+    
+    <div class="fg">
+      <div class="fg-label">Difficulty</div>
+      <div class="diff-chips">
+        <button class="dchip" onclick="toggleDiff('Beginner',this)">Beginner</button>
+        <button class="dchip" onclick="toggleDiff('Intermediate',this)">Intermediate</button>
+        <button class="dchip" onclick="toggleDiff('Advanced',this)">Advanced</button>
+      </div>
+    </div>
+
+    <div class="fg" style="flex-basis: 100%;">
+      <div class="fg-label">Advanced Filters</div>
+      <div class="dropdown-group">
+        <select class="fselect" id="dropPosture" onchange="updateDropdowns()">
+          <option value="">All Postures</option>
+        </select>
+        <select class="fselect" id="dropArm" onchange="updateDropdowns()">
+          <option value="">Single / Double Arm</option>
+        </select>
+        <select class="fselect" id="dropGrip" onchange="updateDropdowns()">
+          <option value="">All Grips</option>
+        </select>
+        <select class="fselect" id="dropRegion" onchange="updateDropdowns()">
+          <option value="">All Body Regions</option>
+        </select>
+        <select class="fselect" id="dropClass" onchange="updateDropdowns()">
+          <option value="">All Classifications</option>
+        </select>
+      </div>
+    </div>
+
+  <div class="fg fg-search" style="margin-top: -60px; flex-direction: row; align-items: flex-end; gap: 12px;"> 
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <div class="fg-label">Search</div>
+        <input class="fsearch" id="searchInput" type="text" placeholder="🔍  Search exercises…" oninput="renderCards()">
+      </div>
+      <button class="btn-clear-all" onclick="clearAllFilters()" title="Reset all filters">✕ Clear</button>
+    </div>
+  </div>
+
+  <!-- Results header -->
+  <div class="results-row" id="resultsRow" style="display:none">
+    <div class="results-title" id="rTitle">All Exercises</div>
+    <div class="results-count" id="rCount">—</div>
+  </div>
+
+  <!-- Cards grid -->
+  <div class="cards" id="cardsGrid">
+    <div class="empty">
+      <div class="empty-icon">💪</div>
+      <div class="empty-t">No data loaded</div>
+      <div class="empty-d">Paste your Google Sheets CSV URL above and click Load Data to start exploring exercises by muscle group.</div>
+    </div>
+  </div>
+
+</div><!-- /content -->
+</div><!-- /layout -->
+<script src="database.js"></script>
+<script src="diagrams.js"></script>
+<script>
+// ── STATE ──────────────────────────────────────────────────────────────────
+//let exercises = [];
+let selMuscle = null;
+let currentViewMode = 'group'; // Add this line
+let selMoverType = 'Any'; // Can be 'Any', 'Prime', 'Secondary', or 'Tertiary'
+let selEquipment = new Set();
+let selDifficulty = new Set();
+
+// Add this new state object
+let selDropdowns = {
+  posture: '',
+  arm: '',
+  grip: '',
+  region: '',
+  classification: ''
+};
+
+// Equipment → emoji
+const EQ_ICONS = {
+  'Ab Wheel': '🛞',
+  'Barbell': '🏋️',
+  'Battle Ropes': '🪢',
+  'Bodyweight': '🤸',
+  'Bulgarian Bag': '👜',
+  'Cable': '🔗',
+  'Climbing Rope': '🧗',
+  'Clubbell': '🔨',
+  'Dumbbell': '🏋️‍♂️',
+  'EZ Bar': '〰️',
+  'Gymnastic Rings': '⭕',
+  'Heavy Sandbag': '🧳',
+  'Indian Club': '🪵',
+  'Kettlebell': '🔔',
+  'Landmine': '🔱',
+  'Macebell': '🗡️',
+  'Medicine Ball': '⚽',
+  'Miniband': '🎗️',
+  'Parallette Bars': '⏸️',
+  'Pull Up Bar': '🔝',
+  'Resistance Band': '🎗️',
+  'Sandbag': '🧺',
+  'Slam Ball': '🏐',
+  'Sled': '🛷',
+  'Sliders': '🛼',
+  'Stability Ball': '🟠',
+  'Superband': '🟣',
+  'Suspension Trainer': '🪢',
+  'Tire': '🛞',
+  'Trap Bar': '⬡',
+  'Wall Ball': '🏀',
+  'Weight Plate': '⚫',
+  'None': '—',
+  'default': '🏃'
+};
+// SVG muscle name → possible column values (for matching)
+// Maps SVG clickable areas to your exact database terms
+const MUSCLE_ALIASES = {
+  'Chest': ['Chest', 'Pectoralis Major'],
+  'Shoulders': ['Shoulders', 'Anterior Deltoids', 'Lateral Deltoids', 'Posterior Deltoids'],
+  'Back': ['Back', 'Latissimus Dorsi', 'Subscapularis', 'Infraspinatus'],
+  'Lower Back': ['Erector Spinae'],
+  'Trapezius': ['Trapezius', 'Upper Trapezius'],
+  'Biceps': ['Biceps', 'Biceps Brachii'],
+  'Triceps': ['Triceps', 'Triceps Brachii'],
+  'Forearms': ['Forearms', 'Brachioradialis'],
+  'Abdominals': ['Abdominals', 'Rectus Abdominis'],
+  'Obliques': ['Obliques'],
+  'Glutes': ['Glutes', 'Gluteus Maximus', 'Gluteus Medius'],
+  'Quadriceps': ['Quadriceps', 'Quadriceps Femoris', 'Vastus Mediais'], 
+  'Hamstrings': ['Hamstrings', 'Biceps Femoris'],
+  'Calves': ['Calves', 'Gastrocnemius', 'Soleus'],
+  'Shins': ['Shins', 'Tibialis Anterior'],
+  'Hip Flexors': ['Hip Flexors', 'Iliopsoas'],
+  'Adductors': ['Adductors', 'Adductor Magnus'],
+  'Abductors': ['Abductors']
+};
+// ── APP INITIALIZATION ─────────────────────────────────────────────────────
+// This runs automatically as soon as the page opens
+// ── APP INITIALIZATION ─────────────────────────────────────────────────────
+window.onload = function() {
+  // 1. Inject the SVG diagrams first
+  document.getElementById('svgContainer').innerHTML = bodyDiagrams;
+// 2. Setup Toggle Buttons
+  document.querySelectorAll('.toggle-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentViewMode = btn.dataset.mode;
+      clearMuscle(); // Reset selection when switching views
+    });
+  });
+
+  // 3. Setup SVG Events
+  const tip = document.getElementById('tip');
+  document.querySelectorAll('.muscle-region').forEach(r => {
+    
+    // On Click
+    r.addEventListener('click', () => {
+      const val = r.dataset[currentViewMode];
+      if (val) selectMuscle(val);
+    });
+    
+    // On Hover (Highlight all related parts)
+    r.addEventListener('mouseenter', e => { 
+      const val = r.dataset[currentViewMode];
+      if (!val) return;
+      
+      tip.textContent = val; 
+      tip.style.display = 'block'; 
+      
+      document.querySelectorAll(`.muscle-region[data-${currentViewMode}="${val}"]`).forEach(el => {
+        el.classList.add('hover-active');
+      });
+    });
+    
+    // Tooltip position
+    r.addEventListener('mousemove', e => { 
+      tip.style.left = (e.clientX + 14) + 'px'; 
+      tip.style.top = (e.clientY - 6) + 'px'; 
+    });
+    
+    // On Leave
+    r.addEventListener('mouseleave', () => { 
+      tip.style.display = 'none'; 
+      const val = r.dataset[currentViewMode];
+      document.querySelectorAll(`.muscle-region[data-${currentViewMode}="${val}"]`).forEach(el => {
+        el.classList.remove('hover-active');
+      });
+    });
+  });
+
+  // 4. Setup the rest of the app UI
+  document.getElementById('setupBanner').style.display = 'none';
+  document.getElementById('filterBar').style.display = 'flex';
+  document.getElementById('resultsRow').style.display = 'flex';
+  document.getElementById('moverToggles').style.display = 'flex';
+  
+  buildEquipChips();
+  buildMuscleChips();
+  buildDropdowns(); // <-- Add this here!
+  renderCards(true);
+};
+function splitCSV(line){
+  const r=[]; let cur='', q=false;
+  for (let i=0;i<line.length;i++){
+    const c=line[i];
+    if(c==='"'){q=!q;}
+    else if(c===','&&!q){r.push(cur);cur='';}
+    else cur+=c;
+  }
+  r.push(cur); return r;
+}
+
+// ── BUILD FILTER CONTROLS ──────────────────────────────────────────────────
+function buildEquipChips(){
+  const eqs = [...new Set(exercises.map(e=>e['Primary Equipment']).filter(Boolean))].sort();
+  const c = document.getElementById('equipChips');
+  c.innerHTML = eqs.map(eq => {
+    const ic = EQ_ICONS[eq]||EQ_ICONS.default;
+    return `<button class="fchip" onclick="toggleEquip('${eq.replace(/'/g,"\\'")}',this)"><span class="ei">${ic}</span>${eq}</button>`;
+  }).join('');
+}
+
+function buildDropdowns() {
+  // Map our HTML select IDs to your exact database column names
+  const mapping = [
+    { id: 'dropPosture', col: 'Posture' },
+    { id: 'dropArm', col: 'Single or Double Arm' },
+    { id: 'dropGrip', col: 'Grip' },
+    { id: 'dropRegion', col: 'Body Region' },
+    { id: 'dropClass', col: 'Primary Exercise Classification' }
+  ];
+
+  mapping.forEach(item => {
+    const selectEl = document.getElementById(item.id);
+    if (!selectEl) return;
+    
+    // Extract unique, valid values from the database
+    const uniqueVals = [...new Set(exercises.map(e => e[item.col]).filter(val => 
+      val && val.trim() !== '' && val.toLowerCase() !== 'none' && val.toLowerCase() !== 'n/a'
+    ))].sort();
+    
+    // Append them as <option> elements
+    uniqueVals.forEach(val => {
+      const opt = document.createElement('option');
+      opt.value = val;
+      opt.textContent = val;
+      selectEl.appendChild(opt);
+    });
+  });
+}
+
+// Function fired when a user changes ANY dropdown
+function updateDropdowns() {
+  selDropdowns.posture = document.getElementById('dropPosture').value;
+  selDropdowns.arm = document.getElementById('dropArm').value;
+  selDropdowns.grip = document.getElementById('dropGrip').value;
+  selDropdowns.region = document.getElementById('dropRegion').value;
+  selDropdowns.classification = document.getElementById('dropClass').value;
+  
+  renderCards(true); // Re-filter the cards
+}
+
+// ── CLEAR ALL FILTERS ──────────────────────────────────────────────────────
+function clearAllFilters() {
+  // 1. Reset state variables
+  selEquipment.clear();
+  selDifficulty.clear();
+  selDropdowns = { posture: '', arm: '', grip: '', region: '', classification: '' };
+  
+  // 2. Reset Text Input & Dropdowns in the DOM
+  document.getElementById('searchInput').value = '';
+  document.getElementById('dropPosture').value = '';
+  document.getElementById('dropArm').value = '';
+  document.getElementById('dropGrip').value = '';
+  document.getElementById('dropRegion').value = '';
+  document.getElementById('dropClass').value = '';
+  
+  // 3. Remove active classes from Equipment chips
+  document.querySelectorAll('#equipChips .fchip').forEach(c => c.classList.remove('on'));
+  
+  // 4. Remove active classes from Difficulty chips (Targeting the filter bar specifically)
+  const diffContainer = document.querySelector('#filterBar .diff-chips');
+  if (diffContainer) {
+    diffContainer.querySelectorAll('.dchip').forEach(c => c.classList.remove('beg', 'int', 'adv'));
+  }
+  
+  // 5. Reset Mover Role back to "Any"
+  selMoverType = 'Any';
+  document.querySelectorAll('.mover-chip').forEach(c => c.classList.remove('active'));
+  const anyMoverBtn = document.querySelector('.mover-chip[onclick*="Any"]');
+  if (anyMoverBtn) anyMoverBtn.classList.add('active');
+  buildMuscleChips(); // Rebuild chips based on 'Any' role
+  
+  // 6. Clear Muscle Selection (This function already triggers renderCards(true))
+  clearMuscle(); 
+}
+
+// ── UPDATED MUSCLE CHIP BUILDER ──
+function buildMuscleChips(){
+  const ms = new Set();
+  
+  // Determine which columns to pull from based on the toggle
+  let targetCols = [];
+  if (selMoverType === 'Any') {
+    targetCols = ['Prime Mover Muscle', 'Secondary Muscle', 'Tertiary Muscle'];
+  } else if (selMoverType === 'Prime') {
+    targetCols = ['Prime Mover Muscle'];
+  } else if (selMoverType === 'Secondary') {
+    targetCols = ['Secondary Muscle'];
+  } else if (selMoverType === 'Tertiary') {
+    targetCols = ['Tertiary Muscle'];
+  }
+  
+  exercises.forEach(e => {
+    targetCols.forEach(c => { 
+      const val = e[c];
+      // Only add valid muscles (ignore empty cells, "None", or "N/A")
+      if (val && val.trim() !== '' && val.toLowerCase() !== 'none' && val.toLowerCase() !== 'n/a') {
+        ms.add(val.trim()); 
+      }
+    });
+  });
+
+  const grid = document.getElementById('chipsGrid');
+  grid.innerHTML = [...ms].sort().map(m => {
+    // Check if this specific chip is currently the active selected muscle
+    const isActive = (selMuscle === m) ? 'active' : '';
+    return `<div class="mchip ${isActive}" onclick="selectChip('${m.replace(/'/g,"\\'")}',this)">${m}</div>`;
+  }).join('');
+  
+  document.getElementById('chipsSection').style.display = 'flex';
+}
+
+// ── FILTER TOGGLES ─────────────────────────────────────────────────────────
+function toggleEquip(eq, btn){
+  if(selEquipment.has(eq)){ selEquipment.delete(eq); btn.classList.remove('on'); }
+  else { selEquipment.add(eq); btn.classList.add('on'); }
+  renderCards();
+}
+
+function toggleDiff(level, btn){
+  const cls = {Novice:"nov", Beginner:'beg',Intermediate:'int',Advanced:'adv'}[level];
+  if(selDifficulty.has(level)){ selDifficulty.delete(level); btn.classList.remove(cls); }
+  else { selDifficulty.add(level); btn.classList.add(cls); }
+  renderCards();
+}
+
+// ── REPLACEMENT MUSCLE FILTERING LOGIC ──
+function setMoverType(type, btn) {
+  selMoverType = type;
+  
+  // Visually update the buttons
+  document.querySelectorAll('.mover-chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  
+  // Rebuild the chips based on the new role
+  buildMuscleChips();
+  
+  // Re-render the cards using the new rule
+  renderCards(true);
+}
+function clearMuscle() {
+  selMuscle = null;
+  document.querySelectorAll('.muscle-region').forEach(r => r.classList.remove('active'));
+  document.querySelectorAll('.mchip').forEach(c => c.classList.remove('active'));
+  document.getElementById('clearBtn').classList.remove('visible');
+  renderCards(true);
+}
+
+function selectMuscle(name) {
+  // Toggle selection
+  selMuscle = selMuscle === name ? null : name;
+  
+  // 1. Update SVG Body visuals based on current mode
+  document.querySelectorAll('.muscle-region').forEach(r => {
+    r.classList.toggle('active', r.dataset[currentViewMode] === selMuscle);
+  });
+  
+  // 2. Update Chips underneath visuals
+  document.querySelectorAll('.mchip').forEach(c => {
+    c.classList.remove('active');
+    if (selMuscle) {
+      const al = MUSCLE_ALIASES[selMuscle] || [selMuscle];
+      if (al.some(a => a.toLowerCase() === c.textContent.toLowerCase())) {
+        c.classList.add('active');
+      }
+    }
+  });
+  
+  document.getElementById('clearBtn').classList.toggle('visible', !!selMuscle);
+  renderCards(true);
+}
+
+function selectChip(name, el) {
+  // Toggle selection
+  selMuscle = selMuscle === name ? null : name;
+  
+  // Reset all visuals first
+  document.querySelectorAll('.mchip').forEach(c => c.classList.remove('active'));
+  document.querySelectorAll('.muscle-region').forEach(r => r.classList.remove('active'));
+  
+  if (selMuscle) {
+    el.classList.add('active');
+    
+    // Highlight the corresponding body part on the SVG based on current mode
+    document.querySelectorAll('.muscle-region').forEach(r => {
+      const svgVal = r.dataset[currentViewMode];
+      if(!svgVal) return;
+      
+      const al = MUSCLE_ALIASES[svgVal] || [svgVal];
+      if (al.some(a => a.toLowerCase() === selMuscle.toLowerCase() || selMuscle.toLowerCase().includes(a.toLowerCase()))) {
+        r.classList.add('active');
+      }
+    });
+  }
+  
+  document.getElementById('clearBtn').classList.toggle('visible', !!selMuscle);
+  renderCards(true);
+}
+
+// ── UPDATED MUSCLE MATCHER ──
+function muscleMatch(e, name) {
+  if (!name) return true; 
+  
+  // Decide which columns to look at based on the toggle
+  let targetCols = [];
+  if (selMoverType === 'Any') {
+    targetCols = [e['Prime Mover Muscle'], e['Secondary Muscle'], e['Tertiary Muscle']];
+  } else if (selMoverType === 'Prime') {
+    targetCols = [e['Prime Mover Muscle']];
+  } else if (selMoverType === 'Secondary') {
+    targetCols = [e['Secondary Muscle']];
+  } else if (selMoverType === 'Tertiary') {
+    targetCols = [e['Tertiary Muscle']];
+  }
+  
+  // Force to lowercase string
+  const cols = targetCols.map(c => c ? String(c).toLowerCase().trim() : '');
+  const aliases = (MUSCLE_ALIASES[name] || [name]).map(a => String(a).toLowerCase());
+  
+  return cols.some(colData => {
+    if (!colData || colData === 'none' || colData === 'n/a') return false;
+    return aliases.some(alias => colData.includes(alias) || alias.includes(colData));
+  });
+}
+
+// Add a global variable to track how many cards we show
+let renderLimit = 30;
+
+function renderCards(reset = true){
+  if (reset) renderLimit = 50; // Reset pagination on new search/filter
+
+  const q = (document.getElementById('searchInput')?.value||'').toLowerCase();
+const filtered = exercises.filter(e =>
+    muscleMatch(e, selMuscle) &&
+    (selEquipment.size===0 || selEquipment.has(e['Primary Equipment'])) &&
+    (selDifficulty.size===0 || selDifficulty.has(e['Difficulty Level'])) &&
+    // Dropdown filters
+    (!selDropdowns.posture || e['Posture'] === selDropdowns.posture) &&
+    (!selDropdowns.arm || e['Single or Double Arm'] === selDropdowns.arm) &&
+    (!selDropdowns.grip || e['Grip'] === selDropdowns.grip) &&
+    (!selDropdowns.region || e['Body Region'] === selDropdowns.region) &&
+    (!selDropdowns.classification || e['Primary Exercise Classification'] === selDropdowns.classification) &&
+    // Text Search
+    (!q || (e['Exercise']||'').toLowerCase().includes(q))
+  );
+
+  document.getElementById('rTitle').textContent = selMuscle || 'All Exercises';
+  document.getElementById('rCount').textContent = `${filtered.length} exercise${filtered.length!==1?'s':''}`;
+  
+  const g = document.getElementById('cardsGrid');
+  
+  if(!filtered.length){
+    g.innerHTML = '<div class="empty"><div class="empty-icon">🔍</div><div class="empty-t">No exercises found</div><div class="empty-d">Try adjusting your filters or selecting a different muscle group.</div></div>';
+    return;
+  }
+
+  // Slice the array to only render the limit
+  const toShow = filtered.slice(0, renderLimit);
+  let html = toShow.map(cardHTML).join('');
+
+  // Add a "Load More" button if there are more exercises to show
+  if (filtered.length > renderLimit) {
+    html += `
+      <div style="grid-column: 1/-1; display: flex; justify-content: center; padding: 20px 0;">
+        <button class="btn-load" onclick="loadMore()">Load More Exercises ↓</button>
+      </div>`;
+  }
+
+  g.innerHTML = html;
+}
+
+// Helper function to increase limit and re-render without resetting
+function loadMore() {
+  renderLimit += 30;
+  renderCards(false); 
+}
+
+
+function ytId(url){
+  if(!url||!url.startsWith('http')) return null;
+  const m = url.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([A-Za-z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
+
+// Re-engineered to bypass Error 153 and show a thumbnail first
+function videoBlock(url, label){
+  const id = ytId(url);
+  if (!id) {
+    return `
+      <div class="vid-wrap">
+        <div class="vid-lbl">${label}</div>
+        <div class="vid-none">📹<span>No video</span></div>
+      </div>`;
+  }
+
+  const thumbUrl = `https://img.youtube.com/vi/${id}/mqdefault.jpg`;
+  
+  // The new iframe string with the privacy-enhanced domain and strict-origin referrer policy
+  const iframeStr = `<iframe style=\\'width:100%;height:100%;border:none;border-radius:8px;\\' src=\\'https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0&modestbranding=1&origin=https://youtube.com\\' referrerpolicy=\\'strict-origin-when-cross-origin\\' allowfullscreen></iframe>`;
+
+  return `
+    <div class="vid-wrap">
+      <div class="vid-lbl">${label}</div>
+      <div class="vid-frame" 
+           style="background: url('${thumbUrl}') center/cover; cursor:pointer; display:flex; align-items:center; justify-content:center; position: relative;" 
+           onclick="this.innerHTML='${iframeStr}'">
+        <div style="background:rgba(0,0,0,0.8); color:white; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-family:'Space Mono',monospace; backdrop-filter: blur(4px);">
+          ▶ PLAY
+        </div>
+      </div>
+    </div>`;
+}
+
+function diffBadge(lv){
+  const l=(lv||'').toLowerCase();
+  if(l.includes('nov')) return `<span class="dbadge db-nov">${lv}</span>`;
+  if(l.includes('beg')) return `<span class="dbadge db-beg">${lv}</span>`;
+  if(l.includes('int')) return `<span class="dbadge db-int">${lv}</span>`;
+  if(l.includes('adv')) return `<span class="dbadge db-adv">${lv}</span>`;
+  return lv ? `<span class="dbadge db-beg">${lv}</span>` : '';
+}
+
+function cardHTML(e){
+  const demo = e['Short YouTube Demonstration']||'';
+  const expl = e['In-Depth YouTube Explanation']||'';
+  const hasVid = ytId(demo)||ytId(expl);
+  const eq = e['Primary Equipment']||'';
+  const mi = [
+    eq ? `<div class="mi"><span class="mi-icon">${EQ_ICONS[eq]||'🏃'}</span>${eq}${e['# Primary Items']&&e['# Primary Items']!='0'?' ×'+e['# Primary Items']:''}</div>` : '',
+    e['Posture'] ? `<div class="mi"><span class="mi-icon">🧍</span>${e['Posture']}</div>` : '',
+    e['Movement Pattern #1'] ? `<div class="mi"><span class="mi-icon">↔️</span>${e['Movement Pattern #1']}</div>` : '',
+    e['Plane Of Motion #1'] ? `<div class="mi"><span class="mi-icon">📐</span>${e['Plane Of Motion #1']}</div>` : '',
+    e['Mechanics'] ? `<div class="mi"><span class="mi-icon">⚙️</span>${e['Mechanics']}</div>` : '',
+    e['Force Type'] ? `<div class="mi"><span class="mi-icon">⚡</span>${e['Force Type']}</div>` : '',
+    e['Body Region'] ? `<div class="mi"><span class="mi-icon">📍</span>${e['Body Region']}</div>` : '',
+  ].filter(Boolean).join('');
+  return `
+<div class="card">
+  <div class="card-top">
+    <div class="card-name">${e['Exercise']||'Unknown'}</div>
+    ${diffBadge(e['Difficulty Level'])}
+  </div>
+<div class="card-muscles">
+  ${e['Prime Mover Muscle'] ? `<span class="mtag p1"><span class="dot"></span> ${e['Prime Mover Muscle']}</span>` : ''}
+  ${e['Secondary Muscle'] && e['Secondary Muscle'] !== 'None' ? `<span class="mtag p2"><span class="dot half"></span> ${e['Secondary Muscle']}</span>` : ''}
+  ${e['Tertiary Muscle'] && e['Tertiary Muscle'] !== 'None' ? `<span class="mtag p3">◯ ${e['Tertiary Muscle']}</span>` : ''}
+</div>
+  ${hasVid ? `<div class="videos">${videoBlock(demo,'▶ Quick Demo')}${videoBlock(expl,'📖 In-Depth')}</div>` : ''}
+  ${mi ? `<div class="card-meta">${mi}</div>` : ''}
+</div>`;
+}
+
+// ── SVG EVENTS ─────────────────────────────────────────────────────────────
+const tip = document.getElementById('tip');
+document.querySelectorAll('.muscle-r').forEach(r => {
+  r.addEventListener('click', () => selectMuscle(r.dataset.muscle));
+  r.addEventListener('mouseenter', e => { tip.textContent = r.dataset.muscle; tip.style.display = 'block'; });
+  r.addEventListener('mousemove', e => { tip.style.left = (e.clientX+14)+'px'; tip.style.top = (e.clientY-6)+'px'; });
+  r.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+});
+
+// Load from URL param
+const sp = new URLSearchParams(location.search);
+if(sp.get('sheet')){ document.getElementById('sheetUrl').value = sp.get('sheet'); loadSheet(); }
+</script>
+</body>
+</html>
