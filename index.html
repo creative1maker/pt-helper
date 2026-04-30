@@ -32,6 +32,7 @@
   --hdr-h: 56px;
   --panel-w: 380px;
   --radius: 10px;
+  --card-min: 340px;
   --font-mono: 'Space Mono', monospace;
   --font-body: 'DM Sans', sans-serif;
   --font-ar: 'Noto Sans Arabic', sans-serif;
@@ -572,10 +573,96 @@ html[lang="ar"] .v-btn { font-family: var(--font-ar); }
 html[lang="ar"] .btn-copy { font-family: var(--font-ar); letter-spacing: 0; }
 .btn-copy:hover { background: rgba(79,195,247,.25); }
 
+/* Filter bar toggle header */
+.filter-bar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  padding: 2px 0;
+}
+.filter-bar-header-title {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.filter-toggle-btn {
+  background: transparent;
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  color: var(--text-muted);
+  padding: 3px 10px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  transition: all .2s;
+  white-space: nowrap;
+}
+.filter-toggle-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+.filter-bar-body { display: flex; flex-direction: column; gap: 14px; }
+.filter-bar-body.hidden { display: none; }
+
+/* Card size controls */
+.card-size-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--surface2);
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.size-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  width: 28px;
+  height: 26px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .15s;
+  line-height: 1;
+}
+.size-btn:hover { background: var(--surface3); color: var(--text); }
+.size-lbl {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  padding: 0 4px;
+  white-space: nowrap;
+}
+
+/* CSV copy button */
+.btn-csv {
+  background: rgba(67,217,142,.12);
+  color: var(--green);
+  border: 1px solid rgba(67,217,142,.3);
+  padding: 5px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  transition: all .2s;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.btn-csv:hover { background: rgba(67,217,142,.22); }
+
 /* ═══════════════════════════════════════════════════════════════════════════
    CARDS GRID
 ══════════════════════════════════════════════════════════════════════════ */
-.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; flex: 1; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--card-min), 1fr)); gap: 16px; flex: 1; }
 .cards.table-mode { display: block; }
 
 .card {
@@ -678,7 +765,7 @@ html[lang="ar"] .btn-load { font-family: var(--font-ar); }
    MOBILE RESPONSIVE — ≤ 768px
 ══════════════════════════════════════════════════════════════════════════ */
 @media (max-width: 768px) {
-  :root { --panel-w: 100%; }
+  :root { --panel-w: 100%; --card-min: 280px; }
 
   /* Header shrinks */
   .hdr { padding: 0 12px; gap: 8px; }
@@ -720,7 +807,7 @@ html[lang="ar"] .btn-load { font-family: var(--font-ar); }
   }
 
   /* Filter bar: proper mobile stack */
-  .filter-bar { padding: 12px; gap: 12px; }
+  .filter-bar { padding: 10px 12px; gap: 10px; }
   .fg { width: 100%; }
 
   /* Equipment chips: allow wrap or horizontal scroll */
@@ -756,11 +843,14 @@ html[lang="ar"] .btn-load { font-family: var(--font-ar); }
 
   /* Results row: wrap */
   .results-row { flex-direction: column; align-items: flex-start; }
-  .results-actions { width: 100%; justify-content: space-between; }
+  .results-actions { width: 100%; justify-content: flex-end; flex-wrap: wrap; gap: 6px; }
 
   /* AI box */
   .ai-input-wrapper { flex-wrap: wrap; }
   .ai-btn { width: 100%; padding: 10px; }
+
+  /* Card size controls on mobile */
+  .card-size-controls { display: none !important; }
 }
 
 /* Extra small screens */
@@ -857,6 +947,17 @@ html[dir="rtl"] .card { direction: rtl; }
   <!-- Filter Bar -->
   <div class="filter-bar" id="filterBar" style="display:none">
 
+    <!-- Collapsible Header -->
+    <div class="filter-bar-header" onclick="toggleFilterBar()">
+      <div class="filter-bar-header-title">
+        <span>⚙️</span>
+        <span data-i18n="filters_label">Filters</span>
+      </div>
+      <button class="filter-toggle-btn" id="filterToggleBtn">▲ Hide</button>
+    </div>
+
+    <div class="filter-bar-body" id="filterBarBody">
+
     <!-- Equipment -->
     <div class="fg">
       <div class="fg-label" data-i18n="equipment">Equipment</div>
@@ -918,6 +1019,8 @@ html[dir="rtl"] .card { direction: rtl; }
       <button class="btn-clear-all" onclick="clearAllFilters()" data-i18n="clear_all">✕ Clear All</button>
     </div>
 
+    </div><!-- /filter-bar-body -->
+
   </div><!-- /filter-bar -->
 
   <!-- Results row -->
@@ -928,6 +1031,12 @@ html[dir="rtl"] .card { direction: rtl; }
     </div>
     <div class="results-actions">
       <button id="copyTableBtn" class="btn-copy" style="display:none" onclick="copyTable()" data-i18n="copy_table">📋 Copy Table</button>
+      <button id="copyCsvBtn" class="btn-csv" style="display:none" onclick="copyCSV()" data-i18n="copy_csv">📤 CSV + Links</button>
+      <div class="card-size-controls" id="cardSizeControls">
+        <button class="size-btn" onclick="changeCardSize(-40)" title="Smaller cards">−</button>
+        <span class="size-lbl">Size</span>
+        <button class="size-btn" onclick="changeCardSize(40)" title="Larger cards">+</button>
+      </div>
       <div class="view-toggles">
         <button class="v-btn active" onclick="switchView('cards', this)" data-i18n="cards">Cards</button>
         <button class="v-btn" onclick="switchView('table', this)" data-i18n="table">Table</button>
@@ -1019,10 +1128,16 @@ const TRANSLATIONS = {
     th_mover: 'Prime Mover',
     th_equipment: 'Equipment',
     th_posture: 'Posture',
+    th_category: 'Category',
     th_demo: 'Quick Demo',
     th_indepth: 'In-Depth',
     copied_msg: '✅ Table copied to clipboard!\n\nPaste it into Excel, Google Sheets, or Word.',
     copy_fail: 'Failed to copy. Please select manually.',
+    copy_csv: '📤 CSV + Links',
+    csv_copied: '✅ CSV copied! YouTube links are exposed.',
+    filters_label: 'Filters',
+    hide_filters: '▲ Hide',
+    show_filters: '▼ Show',
     front: 'Front',
     back: 'Back',
   },
@@ -1089,10 +1204,16 @@ const TRANSLATIONS = {
     th_mover: 'المحرك الأساسي',
     th_equipment: 'المعدات',
     th_posture: 'الوضعية',
+    th_category: 'التصنيف',
     th_demo: 'عرض سريع',
     th_indepth: 'شرح تفصيلي',
     copied_msg: '✅ تم نسخ الجدول!\n\nيمكنك لصقه في Excel أو Google Sheets أو Word.',
     copy_fail: 'فشل النسخ. يرجى التحديد يدوياً.',
+    copy_csv: '📤 CSV + روابط',
+    csv_copied: '✅ تم نسخ CSV! روابط يوتيوب مضمنة.',
+    filters_label: 'الفلاتر',
+    hide_filters: '▲ إخفاء',
+    show_filters: '▼ إظهار',
     front: 'أمام',
     back: 'خلف',
   }
@@ -1311,9 +1432,8 @@ function t_db(text) {
 // Updates text inside UI components WITHOUT destroying the user's selected filters
 function updateDynamicUI() {
   document.querySelectorAll('#equipChips .fchip').forEach(btn => {
-    const match = btn.getAttribute('onclick').match(/toggleEquip\('([^']+)'/);
-    if (match) {
-       const eq = match[1];
+    const eq = btn.getAttribute('data-eq');
+    if (eq) {
        const ic = EQ_ICONS[eq] || EQ_ICONS.default;
        btn.innerHTML = `<span class="ei">${ic}</span>${t_db(eq)}`;
     }
@@ -1399,7 +1519,7 @@ function buildEquipChips() {
   const eqs = [...new Set(exercises.map(e => e['Primary Equipment']).filter(Boolean))].sort();
   document.getElementById('equipChips').innerHTML = eqs.map(eq => {
     const ic = EQ_ICONS[eq] || EQ_ICONS.default;
-    return `<button class="fchip" onclick="toggleEquip('${eq.replace(/'/g,"\\'")}',this)"><span class="ei">${ic}</span>${t_db(eq)}</button>`;
+    return `<button class="fchip" data-eq="${eq}" onclick="toggleEquip('${eq.replace(/'/g,"\\'")}',this)"><span class="ei">${ic}</span>${t_db(eq)}</button>`;
   }).join('');
 }
 
@@ -1679,21 +1799,21 @@ function renderCards(reset = true) {
       const expl = e['In-Depth YouTube Explanation'];
       const demoLink = demo ? `<a href="${demo}" target="_blank" style="color:var(--accent2);font-weight:bold;">${t('th_demo')}</a>` : '-';
       const explLink = expl ? `<a href="${expl}" target="_blank" style="color:var(--accent2);font-weight:bold;">${t('th_indepth')}</a>` : '-';
+      const cat = e['Primary Exercise Classification'] || e['Exercise Classification'] || '-';
     return `<tr>
-      <td style="font-weight:bold">${t_db(e['Exercise'])||'-'}</td>
-      <td>${t_db(e['Difficulty Level'])||'-'}</td>
-      <td>${t_db(e['Target Muscle Group']||e['Muscle Group'])||'-'}</td>
+      <td style="font-weight:bold;min-width:180px">${t_db(e['Exercise'])||'-'}</td>
       <td>${t_db(e['Prime Mover Muscle'])||'-'}</td>
       <td>${t_db(e['Primary Equipment'])||'-'}</td>
-      <td>${t_db(e['Posture'])||'-'}</td>
+      <td>${t_db(cat)}</td>
+      <td>${diffBadge(e['Difficulty Level'])||'-'}</td>
       <td>${demoLink}</td>
       <td>${explLink}</td>
     </tr>`;
     }).join('');
     g.innerHTML = `<div class="table-wrapper"><table class="pt-table" id="ptExportTable">
       <thead><tr>
-        <th>${t('th_exercise')}</th><th>${t('th_difficulty')}</th><th>${t('th_muscle')}</th>
-        <th>${t('th_mover')}</th><th>${t('th_equipment')}</th><th>${t('th_posture')}</th>
+        <th>${t('th_exercise')}</th><th>${t('th_mover')}</th><th>${t('th_equipment')}</th>
+        <th>${t('th_category')}</th><th>${t('th_difficulty')}</th>
         <th>${t('th_demo')}</th><th>${t('th_indepth')}</th>
       </tr></thead>
       <tbody>${rows}</tbody>
@@ -1717,10 +1837,10 @@ function ytId(url) {
 }
 /* Safely loads the YouTube iframe on click */
 function loadVideo(element, id) {
-  const iframeStr = `<iframe style="width:100%;height:100%;border:none;border-radius:8px;" src="https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0&modestbranding=1" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>`;
+  const iframeStr = `<iframe style="width:100%;height:100%;border:none;border-radius:8px;" src="https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0&modestbranding=1" allow="autoplay; encrypted-media; picture-in-picture" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>`;
   element.innerHTML = iframeStr;
-  element.onclick = null; // Prevent multiple clicks
-  element.style.background = 'var(--bg)'; // Clear the thumbnail image
+  element.onclick = null;
+  element.style.background = 'var(--bg)';
 }
 function videoBlock(url, labelKey) {
   const label = t(labelKey);
@@ -1783,10 +1903,31 @@ function switchView(layout, btn) {
   displayLayout = layout;
   document.querySelectorAll('.v-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  document.getElementById('copyTableBtn').style.display = layout === 'table' ? 'block' : 'none';
+  const isTable = layout === 'table';
+  document.getElementById('copyTableBtn').style.display = isTable ? 'inline-flex' : 'none';
+  document.getElementById('copyCsvBtn').style.display = isTable ? 'inline-flex' : 'none';
+  document.getElementById('cardSizeControls').style.display = isTable ? 'none' : 'flex';
   renderCards(false);
 }
 
+/* ── Filter bar toggle ───────────────────────────────────────────────── */
+let filterBarVisible = true;
+function toggleFilterBar() {
+  filterBarVisible = !filterBarVisible;
+  const body = document.getElementById('filterBarBody');
+  const btn  = document.getElementById('filterToggleBtn');
+  body.classList.toggle('hidden', !filterBarVisible);
+  btn.textContent = filterBarVisible ? t('hide_filters') : t('show_filters');
+}
+
+/* ── Card size control ───────────────────────────────────────────────── */
+let cardMinSize = 340;
+function changeCardSize(delta) {
+  cardMinSize = Math.max(200, Math.min(700, cardMinSize + delta));
+  document.documentElement.style.setProperty('--card-min', cardMinSize + 'px');
+}
+
+/* ── Copy table as HTML (for Excel paste) ───────────────────────────── */
 function copyTable() {
   const table = document.getElementById('ptExportTable');
   if (!table) return;
@@ -1803,6 +1944,60 @@ function copyTable() {
   window.getSelection().removeAllRanges();
 }
 
+/* ── Copy as CSV with raw YouTube links (no header row) ─────────────── */
+function copyCSV() {
+  // Re-use the currently filtered exercises (same as what's displayed)
+  const q = (document.getElementById('searchInput')?.value || '').toLowerCase();
+  const baseFilter = (e) => {
+    return muscleMatch(e, selMuscle) &&
+      (selEquipment.size === 0 || selEquipment.has(e['Primary Equipment'])) &&
+      (selDifficulty.size === 0 || selDifficulty.has(e['Difficulty Level'])) &&
+      (selDropdowns.posture.size === 0 || selDropdowns.posture.has(e['Posture'])) &&
+      (selDropdowns.mover.size === 0  || selDropdowns.mover.has(e['Prime Mover Muscle'])) &&
+      (selDropdowns.arm.size === 0    || selDropdowns.arm.has(e['Single or Double Arm'])) &&
+      (selDropdowns.grip.size === 0   || selDropdowns.grip.has(e['Grip'])) &&
+      (selDropdowns.region.size === 0 || selDropdowns.region.has(e['Body Region'])) &&
+      (selDropdowns.classification.size === 0 || selDropdowns.classification.has(e['Primary Exercise Classification'])) &&
+      (!window.aiAvoidRegion || (
+        !(e['Body Region'] || '').toLowerCase().includes(window.aiAvoidRegion) &&
+        !(e['Prime Mover Muscle'] || '').toLowerCase().includes(window.aiAvoidRegion)
+      )) &&
+      (!window.aiAvoidPostures.length || !window.aiAvoidPostures.some(p => (e['Posture'] || '').toLowerCase().includes(p))) &&
+      (!q || (e['Exercise'] || '').toLowerCase().includes(q));
+  };
+  const filtered = exercises.filter(baseFilter);
+
+  const esc = v => `"${(v||'').replace(/"/g,'""')}"`;
+  const rows = filtered.map(e => {
+    const cat = e['Primary Exercise Classification'] || e['Exercise Classification'] || '';
+    return [
+      esc(e['Exercise']),
+      esc(e['Prime Mover Muscle']),
+      esc(e['Primary Equipment']),
+      esc(cat),
+      esc(e['Difficulty Level']),
+      esc(e['Short YouTube Demonstration'] || ''),
+      esc(e['In-Depth YouTube Explanation'] || '')
+    ].join(',');
+  });
+
+  const csv = rows.join('\n');
+  navigator.clipboard.writeText(csv).then(() => {
+    alert(t('csv_copied'));
+  }).catch(() => {
+    // Fallback
+    const ta = document.createElement('textarea');
+    ta.value = csv;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    alert(t('csv_copied'));
+  });
+}
+
 /* ════════════════════════════════════════════════════════════════════════════
    AI FILTER ENGINE (Cloudflare Proxy)
    FIX: allDifficulties and moverOpts now correctly defined
@@ -1816,9 +2011,9 @@ async function runAIFilter() {
   btn.disabled = true;
   statusEl.textContent = t('ai_thinking');
 
-  // Gather current UI options
+  // Gather current UI options — use data-eq attribute for reliable extraction
   const equipChips = Array.from(document.querySelectorAll('#equipChips .fchip:not(.disabled)'));
-  const equipmentOpts = equipChips.map(c => c.textContent.replace(/[\u{1F300}-\u{1FAD6}]/gu, '').trim()).filter(Boolean);
+  const equipmentOpts = equipChips.map(c => c.getAttribute('data-eq')).filter(Boolean);
 
   const getSelectOptions = (id) => {
     const el = document.getElementById(id);
@@ -1840,43 +2035,50 @@ async function runAIFilter() {
     ? `The user may write in Arabic. Understand their request fully. Your JSON response values MUST always be in English to match the database exactly.`
     : '';
 
-  const systemPrompt = `You are an expert physical therapist filtering an exercise database.
-Output ONLY a valid JSON object. Do not include markdown formatting.
+  const systemPrompt = `You are an expert physical therapist and strength coach filtering an exercise database.
+Output ONLY a valid JSON object. No markdown, no code blocks, no extra text.
 ${langInstruction}
 
-CRITICAL RULES:
-1. DO NOT OVER-FILTER: If not explicitly requested, leave posture/arm/grip as "Any".
-2. TRANSLATE RESTRICTIONS: Map pain points to clinical terms:
-   - Kneeling pain → avoidPostures: ["Quadruped","Half-Kneeling","Tall Kneeling"]
-   - Side pain → avoidPostures: ["Side-lying","Side Plank"]
-3. BODYWEIGHT RULE: Home/light equipment → always add "Bodyweight" to equipment array.
-4. Values MUST match these exact options (or "Any"/"None"):
-   - targetMuscle: ${JSON.stringify(muscleOpts)}
-   - equipment: ${JSON.stringify(equipmentOpts)}
-   - posture: ${JSON.stringify(postureOpts)}
-   - arm: ${JSON.stringify(armOpts)}
-   - grip: ${JSON.stringify(gripOpts)}
-   - region: ${JSON.stringify(regionOpts)}
-   - difficulty: ${JSON.stringify(allDifficulties)}
-   - primeMover: ${JSON.stringify(moverOpts)}
+CRITICAL MATCHING RULES:
+1. Values MUST be copied EXACTLY from the option lists below — no synonyms, no paraphrasing.
+2. If unsure or no strong match, use "Any" — do NOT guess.
+3. DO NOT OVER-FILTER: Only set filters explicitly mentioned by the user.
+4. PAIN/RESTRICTION MAPPING:
+   - Knee pain → avoidPostures: ["Kneeling","Half Kneeling","Tall Kneeling","Knee Hover Quadruped","Knee Over Toe Split Squat"]
+   - Back pain → avoidPostures: ["Prone"], avoidRegion: "Lower Back"
+   - Shoulder pain → avoidRegion: "Shoulders"
+   - Side pain → avoidPostures: ["Side Lying","Side Plank"]
+5. HOME/NO GYM → always include "Bodyweight" in equipment array.
+6. BEGINNER → difficulty: "Beginner" or "Novice"
+7. equipment array can contain MULTIPLE values if the user has multiple tools.
 
-JSON Schema:
+AVAILABLE OPTIONS (use these EXACT strings):
+- difficulty options: ${JSON.stringify(allDifficulties)}
+- equipment options: ${JSON.stringify(equipmentOpts)}
+- primeMover options (first 30): ${JSON.stringify(moverOpts.slice(0,30))}
+- posture options: ${JSON.stringify(postureOpts)}
+- arm options: ${JSON.stringify(armOpts)}
+- grip options: ${JSON.stringify(gripOpts)}
+- region options: ${JSON.stringify(regionOpts)}
+- targetMuscle (body region groups): ${JSON.stringify(muscleOpts)}
+
+OUTPUT FORMAT (JSON only):
 {
-  "reasoning": "1-2 sentences on restrictions and equipment selection",
-  "difficulty": "from list or 'Any'",
-  "targetMuscle": "from list or 'Any'",
-  "equipment": ["item1"],
-  "primeMover": "from list or 'Any'",
-  "posture": "from list or 'Any'",
-  "arm": "from list or 'Any'",
-  "grip": "from list or 'Any'",
-  "region": "from list or 'Any'",
-  "avoidRegion": "Shoulders|Knees|Lower Back|None",
-  "avoidPostures": ["posture1", "posture2"]
+  "reasoning": "Brief explanation of your choices",
+  "difficulty": "<exact value from list or 'Any'>",
+  "targetMuscle": "<exact value from list or 'Any'>",
+  "equipment": ["<exact values from list>"],
+  "primeMover": "<exact value from list or 'Any'>",
+  "posture": "<exact value from list or 'Any'>",
+  "arm": "<exact value from list or 'Any'>",
+  "grip": "<exact value from list or 'Any'>",
+  "region": "<exact value from list or 'Any'>",
+  "avoidRegion": "<Shoulders|Knees|Lower Back|None>",
+  "avoidPostures": ["<exact posture values from list>"]
 }`;
 
   try {
-    const workerUrl = "https://musclemap-ai-proxy.omartaylun.workers.dev"; // ← Set your worker URL
+    const workerUrl = "https://musclemap-ai-proxy.yourname.workers.dev"; // ← Set your worker URL
     const response = await fetch(workerUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1919,30 +2121,36 @@ function applyAIFilters(aiResult) {
   // 1. Difficulty
   if (aiResult.difficulty && aiResult.difficulty !== 'Any') {
     selDifficulty.add(aiResult.difficulty);
-    const diffCont = document.querySelector('#filterBar .diff-chips');
-    if (diffCont) {
-    const targetBtn = Array.from(diffCont.querySelectorAll('.dchip')).find(b => b.getAttribute('onclick').includes(aiResult.difficulty));      if (targetBtn) targetBtn.classList.add(DIFF_CLASSES[aiResult.difficulty] || 'beg');
-    }
+    // Find and activate the difficulty chip by matching its onclick value
+    document.querySelectorAll('#filterBar .diff-chips .dchip').forEach(btn => {
+      const onclk = btn.getAttribute('onclick') || '';
+      if (onclk.includes(`'${aiResult.difficulty}'`)) {
+        btn.classList.add(DIFF_CLASSES[aiResult.difficulty] || 'beg');
+      }
+    });
   }
 
-  // 2. Equipment chips
-  if (Array.isArray(aiResult.equipment)) {
-    Array.from(document.querySelectorAll('#equipChips .fchip')).forEach(chip => {
-      const chipText = chip.textContent.replace(/[\u{1F300}-\u{1FAD6}]/gu, '').trim();
-      if (aiResult.equipment.includes(chipText)) {
-        selEquipment.add(chipText);
+  // 2. Equipment chips — use data-eq attribute for reliable matching
+  if (Array.isArray(aiResult.equipment) && aiResult.equipment.length) {
+    document.querySelectorAll('#equipChips .fchip').forEach(chip => {
+      const eqVal = chip.getAttribute('data-eq');
+      if (eqVal && aiResult.equipment.includes(eqVal)) {
+        selEquipment.add(eqVal);
         chip.classList.add('on');
       }
     });
   }
 
-  // 3. Dropdowns
+  // 3. Dropdowns — support both single value and array
   const setDrop = (id, val) => {
     if (!val || val === 'Any' || val === 'None') return;
     const el = document.getElementById(id);
     if (!el) return;
-    const opt = Array.from(el.options).find(o => o.value === val);
-    if (opt) opt.selected = true;
+    const vals = Array.isArray(val) ? val : [val];
+    vals.forEach(v => {
+      const opt = Array.from(el.options).find(o => o.value === v);
+      if (opt) opt.selected = true;
+    });
   };
   setDrop('dropPosture', aiResult.posture);
   setDrop('dropArm',     aiResult.arm);
@@ -1965,7 +2173,7 @@ function applyAIFilters(aiResult) {
     setTimeout(() => selectMuscle(aiResult.targetMuscle), 60);
   }
 
-  // 5. FIX: Negative constraints stored as array correctly
+  // 5. Negative constraints
   window.aiAvoidRegion = (aiResult.avoidRegion && aiResult.avoidRegion !== 'None' && aiResult.avoidRegion !== 'Any')
     ? aiResult.avoidRegion.toLowerCase() : null;
   window.aiAvoidPostures = Array.isArray(aiResult.avoidPostures)
@@ -1978,6 +2186,9 @@ function applyAIFilters(aiResult) {
   ];
   if (avoidList.length) {
     statusEl.textContent += ` (${t('ai_avoiding')}: ${avoidList.join(', ')})`;
+  }
+  if (aiResult.reasoning) {
+    statusEl.textContent += ` — ${aiResult.reasoning}`;
   }
 
   // 6. Re-render
